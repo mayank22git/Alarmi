@@ -1,26 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/models/alarm_model.dart';
 import '../../providers/alarm_provider.dart';
 import '../../../../core/utils/date_formatter.dart';
+import '../../../settings/providers/settings_provider.dart';
 
-class AlarmEditScreen extends StatefulWidget {
+class AlarmEditScreen extends ConsumerStatefulWidget {
   final AlarmModel? alarm;
 
   const AlarmEditScreen({super.key, this.alarm});
 
   @override
-  State<AlarmEditScreen> createState() => _AlarmEditScreenState();
+  ConsumerState<AlarmEditScreen> createState() => _AlarmEditScreenState();
 }
 
-class _AlarmEditScreenState extends State<AlarmEditScreen> {
-  late TimeOfDay _selectedTime;
+class _AlarmEditScreenState extends ConsumerState<AlarmEditScreen> {
+  late DateTime _selectedDateTime;
   late TextEditingController _labelController;
   late bool _vibrate;
   late bool _loopAudio;
   late double _volume;
   late List<int> _selectedDays;
-  late String _selectedAudio;
+  String? _selectedAudio;
 
   final List<Map<String, String>> _ringtones = [
     {'name': 'Default', 'path': 'assets/audio/alarm.mp3'},
@@ -33,15 +35,13 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
   void initState() {
     super.initState();
     final alarm = widget.alarm;
-    _selectedTime = alarm != null
-        ? TimeOfDay.fromDateTime(alarm.dateTime)
-        : TimeOfDay.now();
+    _selectedDateTime = alarm?.dateTime ?? DateTime.now().add(const Duration(minutes: 1));
     _labelController = TextEditingController(text: alarm?.label ?? '');
     _vibrate = alarm?.vibrate ?? true;
     _loopAudio = alarm?.loopAudio ?? true;
     _volume = alarm?.volume ?? 0.7;
     _selectedDays = List.from(alarm?.daysOfWeek ?? []);
-    _selectedAudio = alarm?.assetAudioPath ?? 'assets/audio/alarm.mp3';
+    _selectedAudio = alarm?.assetAudioPath;
   }
 
   @override
@@ -50,37 +50,26 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
     super.dispose();
   }
 
-  Future<void> _selectTime(BuildContext context) async {
-    final TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: _selectedTime,
-    );
-    if (picked != null) {
-      setState(() {
-        _selectedTime = picked;
-      });
-    }
-  }
-
-  void _save(WidgetRef ref) {
+  void _save() {
     final now = DateTime.now();
     DateTime scheduleTime = DateTime(
       now.year,
       now.month,
       now.day,
-      _selectedTime.hour,
-      _selectedTime.minute,
+      _selectedDateTime.hour,
+      _selectedDateTime.minute,
     );
 
-    // If the time is in the past, schedule for tomorrow
     if (scheduleTime.isBefore(now)) {
       scheduleTime = scheduleTime.add(const Duration(days: 1));
     }
 
+    final defaultAudio = ref.read(settingsProvider).defaultRingtone;
+
     final alarm = AlarmModel(
       id: widget.alarm?.id ?? DateTime.now().millisecondsSinceEpoch % 100000,
       dateTime: scheduleTime,
-      assetAudioPath: _selectedAudio,
+      assetAudioPath: _selectedAudio ?? defaultAudio,
       label: _labelController.text,
       vibrate: _vibrate,
       loopAudio: _loopAudio,
@@ -89,113 +78,247 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
       enabled: true,
     );
 
-    ref.read(alarmListProvider.notifier).addAlarm(alarm);
+    if (widget.alarm == null) {
+      ref.read(alarmListProvider.notifier).addAlarm(alarm);
+    } else {
+      ref.read(alarmListProvider.notifier).updateAlarm(alarm);
+    }
     Navigator.pop(context);
+  }
+
+  String _getCountdownText() {
+    final now = DateTime.now();
+    DateTime target = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      _selectedDateTime.hour,
+      _selectedDateTime.minute,
+    );
+    if (target.isBefore(now)) {
+      target = target.add(const Duration(days: 1));
+    }
+    final diff = target.difference(now);
+    final hours = diff.inHours;
+    final minutes = diff.inMinutes % 60;
+
+    if (hours == 0) return 'Ring in $minutes minutes';
+    return 'Ring in $hours hours $minutes minutes';
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final defaultAudio = ref.watch(settingsProvider).defaultRingtone;
+    final effectiveAudio = _selectedAudio ?? defaultAudio;
+    final ringtoneName = _ringtones.firstWhere(
+      (r) => r['path'] == effectiveAudio, 
+      orElse: () => _ringtones[0]
+    )['name']!;
+
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(widget.alarm == null ? 'Add Alarm' : 'Edit Alarm'),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          widget.alarm == null ? 'New Alarm' : 'Edit Alarm',
+          style: theme.textTheme.titleLarge,
+        ),
+        centerTitle: true,
         actions: [
-          Consumer(
-            builder: (context, ref, child) => TextButton(
-              onPressed: () => _save(ref),
-              child: const Text('Save'),
-            ),
+          TextButton(
+            onPressed: _save,
+            child: Text('Save', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
           ),
+          const SizedBox(width: 8),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          GestureDetector(
-            onTap: () => _selectTime(context),
-            child: Center(
-              child: Text(
-                _selectedTime.format(context),
-                style: Theme.of(context).textTheme.displayLarge,
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            const SizedBox(height: 20),
+            // Time Picker Section
+            SizedBox(
+              height: 220,
+              child: CupertinoTheme(
+                data: CupertinoThemeData(
+                  brightness: theme.brightness,
+                  textTheme: CupertinoTextThemeData(
+                    dateTimePickerTextStyle: TextStyle(
+                      color: colorScheme.onSurface,
+                      fontSize: 24,
+                    ),
+                  ),
+                ),
+                child: CupertinoDatePicker(
+                  mode: CupertinoDatePickerMode.time,
+                  initialDateTime: _selectedDateTime,
+                  onDateTimeChanged: (DateTime newDateTime) {
+                    setState(() {
+                      _selectedDateTime = newDateTime;
+                    });
+                  },
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 32),
-          TextField(
-            controller: _labelController,
-            decoration: const InputDecoration(
-              labelText: 'Label',
-              hintText: 'Work, School, etc.',
-              border: OutlineInputBorder(),
+            const SizedBox(height: 12),
+            Text(
+              _getCountdownText(),
+              style: theme.textTheme.bodySmall,
             ),
-          ),
-          const SizedBox(height: 16),
-          ListTile(
-            title: const Text('Ringtone'),
-            subtitle: Text(_ringtones.firstWhere((r) => r['path'] == _selectedAudio)['name']!),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              showModalBottomSheet(
-                context: context,
-                builder: (context) => ListView(
-                  shrinkWrap: true,
-                  children: _ringtones.map((ringtone) {
-                    return RadioListTile<String>(
-                      title: Text(ringtone['name']!),
-                      value: ringtone['path']!,
-                      groupValue: _selectedAudio,
-                      onChanged: (value) {
-                        setState(() => _selectedAudio = value!);
-                        Navigator.pop(context);
-                      },
-                    );
-                  }).toList(),
+            const SizedBox(height: 32),
+
+            // Repeat Days Section
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceVariant,
+                  borderRadius: BorderRadius.circular(24),
                 ),
-              );
-            },
-          ),
-          SwitchListTile(
-            title: const Text('Vibrate'),
-            value: _vibrate,
-            onChanged: (value) => setState(() => _vibrate = value),
-          ),
-          SwitchListTile(
-            title: const Text('Loop Audio'),
-            value: _loopAudio,
-            onChanged: (value) => setState(() => _loopAudio = value),
-          ),
-          ListTile(
-            title: const Text('Volume'),
-            subtitle: Slider(
-              value: _volume,
-              onChanged: (value) => setState(() => _volume = value),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Repeat', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: List.generate(7, (index) {
+                        final day = index + 1;
+                        final isSelected = _selectedDays.contains(day);
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              if (isSelected) {
+                                _selectedDays.remove(day);
+                              } else {
+                                _selectedDays.add(day);
+                              }
+                            });
+                          },
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: isSelected ? colorScheme.primary : colorScheme.surface,
+                              border: Border.all(color: isSelected ? colorScheme.primary : colorScheme.outline),
+                            ),
+                            child: Center(
+                              child: Text(
+                                DateFormatter.formatDayOfWeek(day).substring(0, 1),
+                                style: TextStyle(
+                                  color: isSelected ? colorScheme.onPrimary : colorScheme.onSurface,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-          const Divider(),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8.0),
-            child: Text('Repeat', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-          Wrap(
-            spacing: 8,
-            children: List.generate(7, (index) {
-              final day = index + 1;
-              final isSelected = _selectedDays.contains(day);
-              return ChoiceChip(
-                label: Text(DateFormatter.formatDayOfWeek(day)),
-                selected: isSelected,
-                onSelected: (selected) {
-                  setState(() {
-                    if (selected) {
-                      _selectedDays.add(day);
-                    } else {
-                      _selectedDays.remove(day);
-                    }
-                  });
-                },
-              );
-            }),
-          ),
-        ],
+            const SizedBox(height: 16),
+
+            // Label Section
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceVariant,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Alarm Label', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _labelController,
+                      decoration: InputDecoration(
+                        hintText: 'e.g. Morning Workout',
+                        fillColor: theme.scaffoldBackgroundColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Settings Card
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceVariant,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: Icon(Icons.music_note, color: colorScheme.primary),
+                      title: const Text('Ringtone'),
+                      subtitle: Text(ringtoneName, style: theme.textTheme.bodyMedium),
+                      trailing: Icon(Icons.chevron_right, color: colorScheme.onSurface.withOpacity(0.4)),
+                      onTap: () {
+                        showModalBottomSheet(
+                          context: context,
+                          backgroundColor: colorScheme.surface,
+                          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+                          builder: (context) => ListView(
+                            shrinkWrap: true,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            children: _ringtones.map((ringtone) {
+                              return RadioListTile<String>(
+                                activeColor: colorScheme.primary,
+                                title: Text(ringtone['name']!, style: TextStyle(color: colorScheme.onSurface)),
+                                value: ringtone['path']!,
+                                groupValue: effectiveAudio,
+                                onChanged: (value) {
+                                  setState(() => _selectedAudio = value!);
+                                  Navigator.pop(context);
+                                },
+                              );
+                            }).toList(),
+                          ),
+                        );
+                      },
+                    ),
+                    Divider(height: 1, color: colorScheme.outline.withOpacity(0.2), indent: 56),
+                    SwitchListTile(
+                      secondary: Icon(Icons.vibration, color: colorScheme.primary),
+                      title: const Text('Vibrate'),
+                      value: _vibrate,
+                      onChanged: (value) => setState(() => _vibrate = value),
+                    ),
+                    Divider(height: 1, color: colorScheme.outline.withOpacity(0.2), indent: 56),
+                    ListTile(
+                      leading: Icon(Icons.volume_up, color: colorScheme.primary),
+                      title: const Text('Alarm Volume'),
+                      subtitle: Slider(
+                        value: _volume,
+                        activeColor: colorScheme.primary,
+                        inactiveColor: colorScheme.outline.withOpacity(0.3),
+                        onChanged: (value) => setState(() => _volume = value),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 40),
+          ],
+        ),
       ),
     );
   }

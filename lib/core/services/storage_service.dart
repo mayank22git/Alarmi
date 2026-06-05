@@ -1,6 +1,8 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../features/alarms/domain/models/alarm_model.dart';
 
+import '../../features/world_clock/domain/models/city_model.dart';
+
 class StorageService {
   static const String alarmBoxName = 'alarms';
   static const String settingsBoxName = 'settings';
@@ -10,6 +12,7 @@ class StorageService {
     
     // Register Adapters
     Hive.registerAdapter(AlarmModelAdapter());
+    Hive.registerAdapter(CityModelAdapter());
     
     // Open Boxes
     await Hive.openBox<AlarmModel>(alarmBoxName);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../domain/models/alarm_model.dart';
 import '../../../../core/utils/date_formatter.dart';
+import 'package:intl/intl.dart';
 
 class AlarmTile extends StatelessWidget {
   final AlarmModel alarm;
@@ -18,38 +19,90 @@ class AlarmTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Dismissible(
-      key: Key(alarm.id.toString()),
-      direction: DismissDirection.endToStart,
-      onDismissed: (_) => onDelete(),
-      background: Container(
-        color: Colors.red,
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: const Icon(Icons.delete, color: Colors.white),
-      ),
-      child: ListTile(
-        onTap: onTap,
-        title: Text(
-          DateFormatter.formatTime(alarm.dateTime),
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                color: alarm.enabled ? null : Colors.grey,
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final timeStr = DateFormat('hh:mm').format(alarm.dateTime);
+    final amPmStr = DateFormat('a').format(alarm.dateTime);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Dismissible(
+        key: Key(alarm.id.toString() + alarm.dateTime.toIso8601String()),
+        direction: DismissDirection.endToStart,
+        onDismissed: (_) => onDelete(),
+        background: Container(
+          decoration: BoxDecoration(
+            color: colorScheme.error.withOpacity(0.8),
+            borderRadius: BorderRadius.circular(24),
+          ),
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Icon(Icons.delete_outline, color: colorScheme.onError, size: 24),
+        ),
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 80, maxHeight: 92),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceVariant,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: alarm.enabled ? colorScheme.primary.withOpacity(0.3) : colorScheme.outline.withOpacity(0.2),
+                width: 1,
               ),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (alarm.label.isNotEmpty) Text(alarm.label),
-            Text(
-              alarm.daysOfWeek.isEmpty
-                  ? 'Once'
-                  : alarm.daysOfWeek.map(DateFormatter.formatDayOfWeek).join(', '),
             ),
-          ],
-        ),
-        trailing: Switch(
-          value: alarm.enabled,
-          onChanged: onToggle,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            timeStr,
+                            style: theme.textTheme.headlineMedium?.copyWith(
+                              fontSize: 32,
+                              fontWeight: FontWeight.w600,
+                              color: alarm.enabled ? colorScheme.onSurface : theme.textTheme.bodyMedium?.color,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            amPmStr,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: alarm.enabled ? colorScheme.onSurface : theme.textTheme.bodyMedium?.color,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${alarm.label.isNotEmpty ? "${alarm.label} • " : ""}${alarm.daysOfWeek.isEmpty ? "Ring once" : alarm.daysOfWeek.map(DateFormatter.formatDayOfWeek).join(", ")}',
+                        style: theme.textTheme.bodySmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                Transform.scale(
+                  scale: 0.85,
+                  child: Switch(
+                    value: alarm.enabled,
+                    onChanged: onToggle,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

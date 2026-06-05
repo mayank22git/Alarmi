@@ -39,10 +39,14 @@ class NotificationService {
     String? payload,
   }) async {
     const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'timer_channel',
-      'Timer Notifications',
+      'alarm_channel',
+      'Alarm Notifications',
+      channelDescription: 'Channel for alarm notifications',
       importance: Importance.max,
       priority: Priority.high,
+      fullScreenIntent: true,
+      category: AndroidNotificationCategory.alarm,
+      visibility: NotificationVisibility.public,
     );
 
     const NotificationDetails details = NotificationDetails(

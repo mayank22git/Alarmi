@@ -6,8 +6,15 @@ import 'core/services/alarm_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/providers/service_providers.dart';
 
+import 'package:permission_handler/permission_handler.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await [
+    Permission.notification,
+    Permission.scheduleExactAlarm,
+  ].request();
 
   final storageService = StorageService();
   await storageService.init();

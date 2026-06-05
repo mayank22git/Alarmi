@@ -22,6 +22,7 @@ class AlarmService {
         title: alarm.label.isEmpty ? 'Alarm' : alarm.label,
         body: 'Your alarm is ringing!',
         stopButton: 'Stop',
+        icon: 'notification_icon', // Ensure this exists or use default
       ),
     );
 
