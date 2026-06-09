@@ -27,13 +27,16 @@ class AlarmModelAdapter extends TypeAdapter<AlarmModel> {
       loopAudio: fields[7] as bool,
       fadeDuration: fields[8] as double,
       daysOfWeek: (fields[9] as List).cast<int>(),
+      ringtoneTitle: fields[10] != null ? fields[10] as String : 'Default',
+      isCustomRingtone: fields[11] != null ? fields[11] as bool : false,
+      isCLocked: fields[12] != null ? fields[12] as bool : false,
     );
   }
 
   @override
   void write(BinaryWriter writer, AlarmModel obj) {
     writer
-      ..writeByte(10)
+      ..writeByte(13)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -53,7 +56,13 @@ class AlarmModelAdapter extends TypeAdapter<AlarmModel> {
       ..writeByte(8)
       ..write(obj.fadeDuration)
       ..writeByte(9)
-      ..write(obj.daysOfWeek);
+      ..write(obj.daysOfWeek)
+      ..writeByte(10)
+      ..write(obj.ringtoneTitle)
+      ..writeByte(11)
+      ..write(obj.isCustomRingtone)
+      ..writeByte(12)
+      ..write(obj.isCLocked);
   }
 
   @override

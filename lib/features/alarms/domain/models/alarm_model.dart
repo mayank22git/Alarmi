@@ -25,6 +25,12 @@ class AlarmModel extends Equatable {
   final double fadeDuration;
   @HiveField(9)
   final List<int> daysOfWeek; // 1 = Monday, 7 = Sunday
+  @HiveField(10)
+  final String ringtoneTitle;
+  @HiveField(11)
+  final bool isCustomRingtone;
+  @HiveField(12)
+  final bool isCLocked;
 
   const AlarmModel({
     required this.id,
@@ -37,6 +43,9 @@ class AlarmModel extends Equatable {
     this.loopAudio = true,
     this.fadeDuration = 0.0,
     this.daysOfWeek = const [],
+    this.ringtoneTitle = 'Default',
+    this.isCustomRingtone = false,
+    this.isCLocked = false,
   });
 
   AlarmModel copyWith({
@@ -50,6 +59,9 @@ class AlarmModel extends Equatable {
     bool? loopAudio,
     double? fadeDuration,
     List<int>? daysOfWeek,
+    String? ringtoneTitle,
+    bool? isCustomRingtone,
+    bool? isCLocked,
   }) {
     return AlarmModel(
       id: id ?? this.id,
@@ -62,6 +74,9 @@ class AlarmModel extends Equatable {
       loopAudio: loopAudio ?? this.loopAudio,
       fadeDuration: fadeDuration ?? this.fadeDuration,
       daysOfWeek: daysOfWeek ?? this.daysOfWeek,
+      ringtoneTitle: ringtoneTitle ?? this.ringtoneTitle,
+      isCustomRingtone: isCustomRingtone ?? this.isCustomRingtone,
+      isCLocked: isCLocked ?? this.isCLocked,
     );
   }
 
@@ -77,5 +92,8 @@ class AlarmModel extends Equatable {
         loopAudio,
         fadeDuration,
         daysOfWeek,
+        ringtoneTitle,
+        isCustomRingtone,
+        isCLocked,
       ];
 }

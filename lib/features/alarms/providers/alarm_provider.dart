@@ -21,48 +21,82 @@ class AlarmListNotifier extends StateNotifier<List<AlarmModel>> {
   }
 
   void _loadAlarms() {
-    state = _repository.getAlarms();
+    final alarms = _repository.getAlarms();
+    // Sort alarms by time of day (chronological)
+    alarms.sort((a, b) {
+      if (a.dateTime.hour != b.dateTime.hour) {
+        return a.dateTime.hour.compareTo(b.dateTime.hour);
+      }
+      return a.dateTime.minute.compareTo(b.dateTime.minute);
+    });
+    state = alarms;
+  }
+
+  AlarmModel _sanitizeAlarmTime(AlarmModel alarm) {
+    final now = DateTime.now();
+    DateTime scheduleTime = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      alarm.dateTime.hour,
+      alarm.dateTime.minute,
+      0,
+      0,
+    );
+
+    if (scheduleTime.isBefore(now)) {
+      scheduleTime = scheduleTime.add(const Duration(days: 1));
+    }
+    return alarm.copyWith(dateTime: scheduleTime);
   }
 
   Future<void> addAlarm(AlarmModel alarm) async {
     try {
-      await _repository.saveAlarm(alarm);
+      final sanitizedAlarm = _sanitizeAlarmTime(alarm);
+      await _repository.saveAlarm(sanitizedAlarm);
       _loadAlarms();
-      if (alarm.enabled) {
-        await _ref.read(alarmServiceProvider).scheduleAlarm(alarm);
+      if (sanitizedAlarm.enabled) {
+        await _ref.read(alarmServiceProvider).scheduleAlarm(sanitizedAlarm);
       }
       
-      final timeStr = DateFormatter.formatTime(alarm.dateTime);
-      _ref.read(alarmActionProvider.notifier).notify(
+      final timeStr = DateFormatter.formatTime(sanitizedAlarm.dateTime);
+      _ref.read(alarmActionProvider.notifier).notifySingle(
         AlarmActionType.add, 
         true, 
         message: 'Alarm set for $timeStr',
-        alarm: alarm,
+        alarm: sanitizedAlarm,
       );
     } catch (e) {
-      _ref.read(alarmActionProvider.notifier).notify(AlarmActionType.add, false, message: 'Failed to add alarm');
+      _ref.read(alarmActionProvider.notifier).notifySingle(AlarmActionType.add, false, message: 'Failed to add alarm');
     }
   }
 
   Future<void> updateAlarm(AlarmModel alarm) async {
     try {
-      await _repository.saveAlarm(alarm);
+      final sanitizedAlarm = _sanitizeAlarmTime(alarm);
+      await _repository.saveAlarm(sanitizedAlarm);
       _loadAlarms();
-      if (alarm.enabled) {
-        await _ref.read(alarmServiceProvider).scheduleAlarm(alarm);
+      if (sanitizedAlarm.enabled) {
+        await _ref.read(alarmServiceProvider).scheduleAlarm(sanitizedAlarm);
       } else {
-        await _ref.read(alarmServiceProvider).stopAlarm(alarm.id);
+        await _ref.read(alarmServiceProvider).stopAlarm(sanitizedAlarm.id);
       }
       
-      _ref.read(alarmActionProvider.notifier).notify(AlarmActionType.update, true, message: 'Alarm updated');
+      _ref.read(alarmActionProvider.notifier).notifySingle(AlarmActionType.update, true, message: 'Alarm updated');
     } catch (e) {
-      _ref.read(alarmActionProvider.notifier).notify(AlarmActionType.update, false, message: 'Failed to update alarm');
+      _ref.read(alarmActionProvider.notifier).notifySingle(AlarmActionType.update, false, message: 'Failed to update alarm');
     }
   }
 
   Future<void> toggleAlarm(AlarmModel alarm) async {
     try {
-      final updatedAlarm = alarm.copyWith(enabled: !alarm.enabled);
+      bool isNowEnabled = !alarm.enabled;
+      AlarmModel updatedAlarm = alarm.copyWith(enabled: isNowEnabled);
+
+      if (isNowEnabled) {
+        updatedAlarm = _sanitizeAlarmTime(updatedAlarm);
+      }
+
       await _repository.saveAlarm(updatedAlarm);
       _loadAlarms();
       
@@ -76,14 +110,14 @@ class AlarmListNotifier extends StateNotifier<List<AlarmModel>> {
       final timeStr = DateFormatter.formatTime(updatedAlarm.dateTime);
       final message = updatedAlarm.enabled ? 'Alarm enabled for $timeStr' : 'Alarm disabled';
       
-      _ref.read(alarmActionProvider.notifier).notify(
+      _ref.read(alarmActionProvider.notifier).notifySingle(
         AlarmActionType.toggle, 
         true, 
         message: message,
         alarm: updatedAlarm,
       );
     } catch (e) {
-      _ref.read(alarmActionProvider.notifier).notify(AlarmActionType.toggle, false, message: 'Failed to update alarm');
+      _ref.read(alarmActionProvider.notifier).notifySingle(AlarmActionType.toggle, false, message: 'Failed to update alarm');
     }
   }
 
@@ -93,28 +127,50 @@ class AlarmListNotifier extends StateNotifier<List<AlarmModel>> {
       _loadAlarms();
       await _ref.read(alarmServiceProvider).stopAlarm(alarm.id);
       
-      _ref.read(alarmActionProvider.notifier).notify(
+      _ref.read(alarmActionProvider.notifier).notifySingle(
         AlarmActionType.delete, 
         true, 
         message: 'Alarm deleted',
         alarm: alarm,
       );
     } catch (e) {
-      _ref.read(alarmActionProvider.notifier).notify(AlarmActionType.delete, false, message: 'Failed to delete alarm');
+      _ref.read(alarmActionProvider.notifier).notifySingle(AlarmActionType.delete, false, message: 'Failed to delete alarm');
     }
   }
 
-  Future<void> undoDelete(AlarmModel alarm) async {
+  Future<void> deleteMultipleAlarms(List<AlarmModel> alarms) async {
     try {
-      await _repository.saveAlarm(alarm);
-      _loadAlarms();
-      if (alarm.enabled) {
-        await _ref.read(alarmServiceProvider).scheduleAlarm(alarm);
+      for (final alarm in alarms) {
+        await _repository.deleteAlarm(alarm.id);
+        await _ref.read(alarmServiceProvider).stopAlarm(alarm.id);
       }
+      _loadAlarms();
       
-      _ref.read(alarmActionProvider.notifier).notify(AlarmActionType.undo, true, message: 'Alarm restored');
+      _ref.read(alarmActionProvider.notifier).notify(
+        AlarmActionType.delete, 
+        true, 
+        message: 'Deleted ${alarms.length} alarms',
+        alarms: alarms,
+      );
     } catch (e) {
-      _ref.read(alarmActionProvider.notifier).notify(AlarmActionType.undo, false, message: 'Failed to restore alarm');
+      _ref.read(alarmActionProvider.notifier).notify(AlarmActionType.delete, false, message: 'Failed to delete alarms');
+    }
+  }
+
+  Future<void> undoDelete(List<AlarmModel> alarms) async {
+    try {
+      for (final alarm in alarms) {
+        final sanitizedAlarm = alarm.enabled ? _sanitizeAlarmTime(alarm) : alarm;
+        await _repository.saveAlarm(sanitizedAlarm);
+        if (sanitizedAlarm.enabled) {
+          await _ref.read(alarmServiceProvider).scheduleAlarm(sanitizedAlarm);
+        }
+      }
+      _loadAlarms();
+      
+      _ref.read(alarmActionProvider.notifier).notifySingle(AlarmActionType.undo, true, message: 'Alarms restored');
+    } catch (e) {
+      _ref.read(alarmActionProvider.notifier).notifySingle(AlarmActionType.undo, false, message: 'Failed to restore alarms');
     }
   }
 }

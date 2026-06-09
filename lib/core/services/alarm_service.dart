@@ -3,16 +3,29 @@ import 'package:alarm/model/alarm_settings.dart';
 import '../../features/alarms/domain/models/alarm_model.dart';
 import 'dart:developer' as dev;
 
+import 'dart:io';
+
 class AlarmService {
   Future<void> init() async {
     await Alarm.init();
   }
 
   Future<bool> scheduleAlarm(AlarmModel alarm) async {
+    String audioPath = alarm.assetAudioPath;
+    
+    // Fallback logic for custom files
+    if (alarm.isCustomRingtone) {
+      final file = File(audioPath);
+      if (!await file.exists()) {
+        dev.log('ALARM_SERVICE: Custom ringtone file not found, falling back to default');
+        audioPath = 'assets/audio/Ringing.mp3';
+      }
+    }
+
     final alarmSettings = AlarmSettings(
-      id: alarm.id,
+      id: alarm.isCLocked ? alarm.id + 100000 : alarm.id,
       dateTime: alarm.dateTime,
-      assetAudioPath: alarm.assetAudioPath,
+      assetAudioPath: audioPath,
       loopAudio: alarm.loopAudio,
       vibrate: alarm.vibrate,
       volumeSettings: VolumeSettings.fixed(
@@ -26,7 +39,7 @@ class AlarmService {
       ),
     );
 
-    dev.log('Scheduling alarm: ${alarm.id} at ${alarm.dateTime} with ${alarm.assetAudioPath}');
+    dev.log('Scheduling alarm: ${alarm.id} at ${alarm.dateTime} with $audioPath');
     return await Alarm.set(alarmSettings: alarmSettings);
   }
 

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/settings_provider.dart';
 
+import '../../../../features/alarms/presentation/screens/ringtone_picker_screen.dart';
+import '../../../../core/services/ringtone_service.dart';
+
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -10,13 +13,6 @@ class SettingsScreen extends ConsumerWidget {
     final settings = ref.watch(settingsProvider);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-
-    final List<Map<String, String>> ringtones = [
-      {'name': 'Default', 'path': 'assets/audio/alarm.mp3'},
-      {'name': 'Ringtone 1', 'path': 'assets/audio/alarm1.mp3'},
-      {'name': 'Ringtone 2', 'path': 'assets/audio/alarm2.mp3'},
-      {'name': 'Ringtone 3', 'path': 'assets/audio/alarm3.mp3'},
-    ];
 
     final List<int> snoozeOptions = [5, 10, 15, 20, 30];
 
@@ -61,30 +57,18 @@ class SettingsScreen extends ConsumerWidget {
             children: [
               ListTile(
                 title: const Text('Default Ringtone'),
-                subtitle: Text(ringtones.firstWhere((r) => r['path'] == settings.defaultRingtone, orElse: () => ringtones[0])['name']!),
+                subtitle: Text(settings.defaultRingtoneTitle),
                 trailing: Icon(Icons.chevron_right, color: colorScheme.onSurface.withOpacity(0.4)),
-                onTap: () {
-                  showModalBottomSheet(
-                    context: context,
-                    backgroundColor: colorScheme.surface,
-                    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-                    builder: (context) => ListView(
-                      shrinkWrap: true,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      children: ringtones.map((ringtone) {
-                        return RadioListTile<String>(
-                          activeColor: colorScheme.primary,
-                          title: Text(ringtone['name']!, style: TextStyle(color: colorScheme.onSurface)),
-                          value: ringtone['path']!,
-                          groupValue: settings.defaultRingtone,
-                          onChanged: (value) {
-                            ref.read(settingsProvider.notifier).setDefaultRingtone(value!);
-                            Navigator.pop(context);
-                          },
-                        );
-                      }).toList(),
+                onTap: () async {
+                  final RingtoneModel? result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => RingtonePickerScreen(currentPath: settings.defaultRingtone),
                     ),
                   );
+                  if (result != null) {
+                    ref.read(settingsProvider.notifier).setDefaultRingtone(result.path, result.title);
+                  }
                 },
               ),
               ListTile(

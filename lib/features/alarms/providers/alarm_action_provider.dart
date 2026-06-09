@@ -7,29 +7,35 @@ class AlarmActionState {
   final AlarmActionType? type;
   final bool success;
   final String? message;
-  final AlarmModel? alarm;
+  final List<AlarmModel> alarms;
   final DateTime? timestamp;
 
   AlarmActionState({
     this.type,
     this.success = false,
     this.message,
-    this.alarm,
+    this.alarms = const [],
     this.timestamp,
   });
+
+  AlarmModel? get alarm => alarms.isNotEmpty ? alarms.first : null;
 }
 
 class AlarmActionNotifier extends StateNotifier<AlarmActionState> {
   AlarmActionNotifier() : super(AlarmActionState());
 
-  void notify(AlarmActionType type, bool success, {String? message, AlarmModel? alarm}) {
+  void notify(AlarmActionType type, bool success, {String? message, List<AlarmModel> alarms = const []}) {
     state = AlarmActionState(
       type: type,
       success: success,
       message: message,
-      alarm: alarm,
+      alarms: alarms,
       timestamp: DateTime.now(),
     );
+  }
+
+  void notifySingle(AlarmActionType type, bool success, {String? message, AlarmModel? alarm}) {
+    notify(type, success, message: message, alarms: alarm != null ? [alarm] : []);
   }
 }
 

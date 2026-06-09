@@ -87,7 +87,7 @@ class _TimerViewState extends ConsumerState<_TimerView> with AutomaticKeepAliveC
       final alarmSettings = AlarmSettings(
         id: 999,
         dateTime: triggerTime,
-        assetAudioPath: 'assets/audio/alarm.mp3',
+        assetAudioPath: 'assets/audio/Ringing.mp3',
         loopAudio: true,
         vibrate: true,
         volumeSettings: const VolumeSettings.fixed(volume: 0.8),

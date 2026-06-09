@@ -8,6 +8,9 @@ class AlarmTile extends StatelessWidget {
   final ValueChanged<bool> onToggle;
   final VoidCallback onDelete;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
+  final bool isSelected;
+  final bool isSelectionMode;
 
   const AlarmTile({
     super.key,
@@ -15,6 +18,9 @@ class AlarmTile extends StatelessWidget {
     required this.onToggle,
     required this.onDelete,
     required this.onTap,
+    required this.onLongPress,
+    this.isSelected = false,
+    this.isSelectionMode = false,
   });
 
   @override
@@ -28,7 +34,7 @@ class AlarmTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Dismissible(
         key: Key(alarm.id.toString() + alarm.dateTime.toIso8601String()),
-        direction: DismissDirection.endToStart,
+        direction: isSelectionMode ? DismissDirection.none : DismissDirection.endToStart,
         onDismissed: (_) => onDelete(),
         background: Container(
           decoration: BoxDecoration(
@@ -41,15 +47,21 @@ class AlarmTile extends StatelessWidget {
         ),
         child: GestureDetector(
           onTap: onTap,
-          child: Container(
+          onLongPress: onLongPress,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
             constraints: const BoxConstraints(minHeight: 80, maxHeight: 92),
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
-              color: colorScheme.surfaceVariant,
+              color: isSelected 
+                  ? colorScheme.primary.withOpacity(0.1) 
+                  : colorScheme.surfaceVariant,
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: alarm.enabled ? colorScheme.primary.withOpacity(0.3) : colorScheme.outline.withOpacity(0.2),
-                width: 1,
+                color: isSelected 
+                    ? colorScheme.primary 
+                    : (alarm.enabled ? colorScheme.primary.withOpacity(0.3) : colorScheme.outline.withOpacity(0.2)),
+                width: isSelected ? 2 : 1,
               ),
             ),
             child: Row(
@@ -68,7 +80,7 @@ class AlarmTile extends StatelessWidget {
                             style: theme.textTheme.headlineMedium?.copyWith(
                               fontSize: 32,
                               fontWeight: FontWeight.w600,
-                              color: alarm.enabled ? colorScheme.onSurface : theme.textTheme.bodyMedium?.color,
+                              color: alarm.enabled || isSelected ? colorScheme.onSurface : theme.textTheme.bodyMedium?.color,
                               letterSpacing: -0.5,
                             ),
                           ),
@@ -78,7 +90,7 @@ class AlarmTile extends StatelessWidget {
                             style: theme.textTheme.bodyMedium?.copyWith(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
-                              color: alarm.enabled ? colorScheme.onSurface : theme.textTheme.bodyMedium?.color,
+                              color: alarm.enabled || isSelected ? colorScheme.onSurface : theme.textTheme.bodyMedium?.color,
                             ),
                           ),
                         ],
@@ -93,13 +105,20 @@ class AlarmTile extends StatelessWidget {
                     ],
                   ),
                 ),
-                Transform.scale(
-                  scale: 0.85,
-                  child: Switch(
-                    value: alarm.enabled,
-                    onChanged: onToggle,
+                if (isSelectionMode)
+                  Checkbox(
+                    value: isSelected,
+                    onChanged: (_) => onTap(),
+                    shape: const CircleBorder(),
+                  )
+                else
+                  Transform.scale(
+                    scale: 0.85,
+                    child: Switch(
+                      value: alarm.enabled,
+                      onChanged: onToggle,
+                    ),
                   ),
-                ),
               ],
             ),
           ),

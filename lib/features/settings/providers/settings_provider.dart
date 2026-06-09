@@ -7,12 +7,14 @@ class SettingsState {
   final ThemeMode themeMode;
   final bool is24HourFormat;
   final String defaultRingtone;
+  final String defaultRingtoneTitle;
   final int snoozeDuration;
 
   SettingsState({
     required this.themeMode,
     required this.is24HourFormat,
     required this.defaultRingtone,
+    required this.defaultRingtoneTitle,
     required this.snoozeDuration,
   });
 
@@ -20,12 +22,14 @@ class SettingsState {
     ThemeMode? themeMode,
     bool? is24HourFormat,
     String? defaultRingtone,
+    String? defaultRingtoneTitle,
     int? snoozeDuration,
   }) {
     return SettingsState(
       themeMode: themeMode ?? this.themeMode,
       is24HourFormat: is24HourFormat ?? this.is24HourFormat,
       defaultRingtone: defaultRingtone ?? this.defaultRingtone,
+      defaultRingtoneTitle: defaultRingtoneTitle ?? this.defaultRingtoneTitle,
       snoozeDuration: snoozeDuration ?? this.snoozeDuration,
     );
   }
@@ -38,7 +42,8 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       : super(SettingsState(
           themeMode: ThemeMode.dark,
           is24HourFormat: true,
-          defaultRingtone: 'assets/audio/alarm.mp3',
+          defaultRingtone: 'assets/audio/Ringing.mp3',
+          defaultRingtoneTitle: 'Default',
           snoozeDuration: 5,
         )) {
     _loadSettings();
@@ -48,13 +53,15 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     final storage = _ref.read(storageServiceProvider);
     final themeIndex = storage.getSetting('themeMode', defaultValue: 2); // Dark
     final is24h = storage.getSetting('is24HourFormat', defaultValue: true);
-    final ringtone = storage.getSetting('defaultRingtone', defaultValue: 'assets/audio/alarm.mp3');
+    final ringtone = storage.getSetting('defaultRingtone', defaultValue: 'assets/audio/Ringing.mp3');
+    final ringtoneTitle = storage.getSetting('defaultRingtoneTitle', defaultValue: 'Default');
     final snooze = storage.getSetting('snoozeDuration', defaultValue: 5);
 
     state = SettingsState(
       themeMode: ThemeMode.values[themeIndex],
       is24HourFormat: is24h,
       defaultRingtone: ringtone,
+      defaultRingtoneTitle: ringtoneTitle,
       snoozeDuration: snooze,
     );
   }
@@ -71,9 +78,10 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     await _ref.read(storageServiceProvider).saveSetting('is24HourFormat', value);
   }
 
-  Future<void> setDefaultRingtone(String path) async {
-    state = state.copyWith(defaultRingtone: path);
+  Future<void> setDefaultRingtone(String path, String title) async {
+    state = state.copyWith(defaultRingtone: path, defaultRingtoneTitle: title);
     await _ref.read(storageServiceProvider).saveSetting('defaultRingtone', path);
+    await _ref.read(storageServiceProvider).saveSetting('defaultRingtoneTitle', title);
   }
 
   Future<void> setSnoozeDuration(int minutes) async {
