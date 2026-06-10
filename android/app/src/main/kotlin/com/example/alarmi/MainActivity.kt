@@ -77,7 +77,8 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, RINGTONE_CHANNEL).setMethodCallHandler { call, result ->
             if (call.method == "getSystemRingtones") {
                 val type = call.argument<Int>("type") ?: RingtoneManager.TYPE_ALARM
-                result.success(getRingtones(type))
+                val ringtones = getRingtones(type)
+                result.success(ringtones)
             } else {
                 result.notImplemented()
             }

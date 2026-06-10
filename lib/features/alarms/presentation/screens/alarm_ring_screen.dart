@@ -150,7 +150,7 @@ class _NormalDismissViewState extends ConsumerState<_NormalDismissView> {
     
     ref.read(alarmServiceProvider).scheduleAlarm(snoozeAlarm);
     if (mounted) {
-      Navigator.pop(context);
+      Navigator.of(context, rootNavigator: true).pop();
     }
   }
 
@@ -158,7 +158,7 @@ class _NormalDismissViewState extends ConsumerState<_NormalDismissView> {
     _autoSnoozeTimer?.cancel();
     ref.read(alarmListProvider.notifier).dismissAlarm(widget.alarmSettings.id);
     if (mounted) {
-      Navigator.pop(context);
+      Navigator.of(context, rootNavigator: true).pop();
     }
   }
 
@@ -289,16 +289,22 @@ class _CLockedDismissViewState extends ConsumerState<_CLockedDismissView> {
   }
 
   void _validateAndDismiss() {
-    final input = _controller.text.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
-    final target = _requiredPhrase.toLowerCase();
+    final input = _controller.text.trim().replaceAll(RegExp(r'\s+'), ' ');
+    final target = _requiredPhrase;
 
     if (input == target) {
-      ref.read(alarmListProvider.notifier).dismissAlarm(widget.alarmSettings.id);
-      Navigator.pop(context);
+      _dismissChallenge();
     } else {
       setState(() {
         _errorMessage = "Phrase doesn't match. Try again.";
       });
+    }
+  }
+
+  void _dismissChallenge() {
+    ref.read(alarmListProvider.notifier).dismissAlarm(widget.alarmSettings.id);
+    if (mounted) {
+      Navigator.of(context, rootNavigator: true).pop();
     }
   }
 
@@ -307,67 +313,75 @@ class _CLockedDismissViewState extends ConsumerState<_CLockedDismissView> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        32,
-        0,
-        32,
-        MediaQuery.of(context).viewInsets.bottom,
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          Icon(Icons.lock_clock, size: 64, color: colorScheme.primary),
-          const SizedBox(height: 24),
-          Text(
-            _currentTimeStr,
-            style: theme.textTheme.displayMedium?.copyWith(fontWeight: FontWeight.w200),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            widget.alarmSettings.notificationSettings.title,
-            style: theme.textTheme.titleLarge?.copyWith(color: colorScheme.primary),
-          ),
-          const SizedBox(height: 48),
-          const Text(
-            'Type the following exactly to dismiss:',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 16),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceVariant,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              _requiredPhrase,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, fontStyle: FontStyle.italic),
-            ),
-          ),
-          const SizedBox(height: 32),
-          TextField(
-            controller: _controller,
-            autofocus: true,
-            decoration: InputDecoration(
-              hintText: 'Type phrase here...',
-              errorText: _errorMessage,
-              border: const OutlineInputBorder(),
-            ),
-            onSubmitted: (_) => _validateAndDismiss(),
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: colorScheme.primary,
-                foregroundColor: colorScheme.onPrimary,
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 32),
+                  Icon(Icons.lock_clock, size: 64, color: colorScheme.primary),
+                  const SizedBox(height: 24),
+                  Text(
+                    _currentTimeStr,
+                    style: theme.textTheme.displayMedium?.copyWith(fontWeight: FontWeight.w200),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    widget.alarmSettings.notificationSettings.title,
+                    style: theme.textTheme.titleLarge?.copyWith(color: colorScheme.primary),
+                  ),
+                  const SizedBox(height: 48),
+                  const Text(
+                    'Type the following exactly to dismiss:',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 16),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceVariant,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      _requiredPhrase,
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, fontStyle: FontStyle.italic),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  TextField(
+                    controller: _controller,
+                    autofocus: true,
+                    textInputAction: TextInputAction.done,
+                    decoration: InputDecoration(
+                      hintText: 'Type phrase here...',
+                      errorText: _errorMessage,
+                      border: const OutlineInputBorder(),
+                    ),
+                    onSubmitted: (_) => _validateAndDismiss(),
+                  ),
+                  const SizedBox(height: 16),
+                ],
               ),
-              onPressed: _validateAndDismiss,
-              child: const Text('DISMISS ALARM', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colorScheme.primary,
+                  foregroundColor: colorScheme.onPrimary,
+                ),
+                onPressed: _validateAndDismiss,
+                child: const Text('DISMISS ALARM', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
             ),
           ),
         ],

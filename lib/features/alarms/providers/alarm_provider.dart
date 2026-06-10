@@ -132,8 +132,15 @@ class AlarmListNotifier extends StateNotifier<List<AlarmModel>> {
 
   Future<void> dismissAlarm(int id) async {
     final alarms = state;
-    final index = alarms.indexWhere((a) => a.id == id);
-    if (index == -1) return;
+    // Map ringing ID back to base model ID if it's a CLocked alarm
+    final baseId = id >= 100000 ? id - 100000 : id;
+    
+    final index = alarms.indexWhere((a) => a.id == baseId);
+    if (index == -1) {
+      // Fallback: Just stop the ringing even if model not found
+      await _ref.read(alarmServiceProvider).stopAlarm(id);
+      return;
+    }
 
     final alarm = alarms[index];
     AlarmModel updatedAlarm;
@@ -152,7 +159,8 @@ class AlarmListNotifier extends StateNotifier<List<AlarmModel>> {
     _loadAlarms();
     
     final alarmService = _ref.read(alarmServiceProvider);
-    await alarmService.stopAlarm(id); // Ensure it's stopped in the package
+    // Stop the actual ringing ID
+    await alarmService.stopAlarm(id);
     
     if (updatedAlarm.enabled) {
       await alarmService.scheduleAlarm(updatedAlarm);
