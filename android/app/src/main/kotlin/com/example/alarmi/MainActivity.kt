@@ -1,6 +1,8 @@
 package com.example.alarmi
 
 import android.app.ActivityManager
+import android.app.KeyguardManager
+import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -40,6 +42,7 @@ class MainActivity : FlutterActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(screenOffReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
             registerReceiver(screenOffReceiver, filter)
         }
     }
@@ -62,10 +65,13 @@ class MainActivity : FlutterActivity() {
         this.window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED)
         this.window.addFlags(WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON)
         this.window.addFlags(WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD)
+        this.window.addFlags(WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON)
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             this.setShowWhenLocked(true)
             this.setTurnScreenOn(true)
+            val km = this.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+            km.requestDismissKeyguard(this, null)
         }
     }
 
@@ -96,9 +102,12 @@ class MainActivity : FlutterActivity() {
                         
                         this@MainActivity.startActivity(intent)
                         
-                        val activityManager = this@MainActivity.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-                        activityManager.moveTaskToFront(this@MainActivity.taskId, ActivityManager.MOVE_TASK_WITH_HOME)
+                        val am = this@MainActivity.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+                        am.moveTaskToFront(this@MainActivity.taskId, ActivityManager.MOVE_TASK_WITH_HOME)
                         
+                        val nm = this@MainActivity.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                        nm.cancelAll()
+
                         result.success(null)
                     } catch (e: Exception) {
                         result.error("FOREGROUND_ERROR", e.message, null)

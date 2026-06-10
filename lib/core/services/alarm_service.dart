@@ -31,12 +31,12 @@ class AlarmService {
         volume: alarm.volume,
       ),
       notificationSettings: NotificationSettings(
-        title: alarm.label.isEmpty ? 'Alarm' : alarm.label,
-        body: 'Your alarm is ringing!',
-        stopButton: alarm.isCLocked ? '' : 'Stop',
-        icon: 'ic_launcher', // Use standard launcher icon
+        title: '', // Remove title to suppress banner content
+        body: '',  // Remove body to suppress banner content
+        stopButton: '', // Remove stop button
+        icon: 'ic_launcher',
       ),
-      androidFullScreenIntent: true,
+      androidFullScreenIntent: false, // Disable native FSI to prevent the pop-up panel (HUN)
     );
 
     dev.log('Scheduling alarm: ${alarm.id} at ${alarm.dateTime} with $audioPath');
