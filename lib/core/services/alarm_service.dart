@@ -1,5 +1,4 @@
 import 'package:alarm/alarm.dart';
-import 'package:alarm/model/alarm_settings.dart';
 import '../../features/alarms/domain/models/alarm_model.dart';
 import 'dart:developer' as dev;
 
@@ -34,9 +33,10 @@ class AlarmService {
       notificationSettings: NotificationSettings(
         title: alarm.label.isEmpty ? 'Alarm' : alarm.label,
         body: 'Your alarm is ringing!',
-        stopButton: 'Stop',
-        icon: 'notification_icon', // Ensure this exists or use default
+        stopButton: alarm.isCLocked ? '' : 'Stop',
+        icon: 'ic_launcher', // Use standard launcher icon
       ),
+      androidFullScreenIntent: true,
     );
 
     dev.log('Scheduling alarm: ${alarm.id} at ${alarm.dateTime} with $audioPath');
@@ -51,5 +51,5 @@ class AlarmService {
     return false; // Placeholder
   }
 
-  Stream<AlarmSettings> get ringStream => Alarm.ringStream.stream;
+  Stream<AlarmSettings> get ringStream => Alarm.ringing.expand((set) => set.alarms);
 }

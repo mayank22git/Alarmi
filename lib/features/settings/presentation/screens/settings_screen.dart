@@ -41,14 +41,6 @@ class SettingsScreen extends ConsumerWidget {
                   ref.read(settingsProvider.notifier).setThemeMode(nextMode);
                 },
               ),
-              SwitchListTile(
-                title: const Text('24-hour format'),
-                subtitle: const Text('Display time in 24-hour style'),
-                value: settings.is24HourFormat,
-                onChanged: (value) {
-                  ref.read(settingsProvider.notifier).set24HourFormat(value);
-                },
-              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -103,6 +95,41 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           _SettingsGroup(
+            title: 'Button Functions',
+            children: [
+              ListTile(
+                title: const Text('Power Button Action'),
+                subtitle: Text(settings.powerButtonAction == ButtonAction.snooze ? 'Snooze Alarm' : 'Dismiss Alarm'),
+                trailing: Icon(Icons.chevron_right, color: colorScheme.onSurface.withOpacity(0.4)),
+                onTap: () {
+                  _showButtonActionPicker(
+                    context,
+                    ref,
+                    'Power Button Action',
+                    settings.powerButtonAction,
+                    (action) => ref.read(settingsProvider.notifier).setPowerButtonAction(action),
+                  );
+                },
+              ),
+              Divider(height: 1, color: colorScheme.outline.withOpacity(0.2), indent: 16),
+              ListTile(
+                title: const Text('Volume Buttons Action'),
+                subtitle: Text(settings.volumeButtonAction == ButtonAction.snooze ? 'Snooze Alarm' : 'Dismiss Alarm'),
+                trailing: Icon(Icons.chevron_right, color: colorScheme.onSurface.withOpacity(0.4)),
+                onTap: () {
+                  _showButtonActionPicker(
+                    context,
+                    ref,
+                    'Volume Buttons Action',
+                    settings.volumeButtonAction,
+                    (action) => ref.read(settingsProvider.notifier).setVolumeButtonAction(action),
+                  );
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _SettingsGroup(
             title: 'About',
             children: [
               ListTile(
@@ -117,6 +144,52 @@ class SettingsScreen extends ConsumerWidget {
                 },
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showButtonActionPicker(
+    BuildContext context,
+    WidgetRef ref,
+    String title,
+    ButtonAction currentValue,
+    Function(ButtonAction) onSelected,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: colorScheme.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          ),
+          RadioListTile<ButtonAction>(
+            activeColor: colorScheme.primary,
+            title: const Text('Snooze Alarm'),
+            value: ButtonAction.snooze,
+            groupValue: currentValue,
+            onChanged: (value) {
+              onSelected(value!);
+              Navigator.pop(context);
+            },
+          ),
+          RadioListTile<ButtonAction>(
+            activeColor: colorScheme.primary,
+            title: const Text('Dismiss Alarm'),
+            value: ButtonAction.dismiss,
+            groupValue: currentValue,
+            onChanged: (value) {
+              onSelected(value!);
+              Navigator.pop(context);
+            },
           ),
         ],
       ),

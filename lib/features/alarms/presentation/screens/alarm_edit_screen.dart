@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/models/alarm_model.dart';
 import '../../providers/alarm_provider.dart';
 import '../../../../core/utils/date_formatter.dart';
+import '../../../../core/utils/alarm_utils.dart';
 import '../../../settings/providers/settings_provider.dart';
 
 import 'ringtone_picker_screen.dart';
@@ -29,6 +30,7 @@ class _AlarmEditScreenState extends ConsumerState<AlarmEditScreen> {
   late String _ringtoneTitle;
   late bool _isCustomRingtone;
   late bool _isCLocked;
+  late int _autoSnoozeMinutes;
 
   final List<Map<String, String>> _ringtones = [
     {'name': 'Default', 'path': 'assets/audio/Ringing.mp3'},
@@ -50,6 +52,7 @@ class _AlarmEditScreenState extends ConsumerState<AlarmEditScreen> {
     _ringtoneTitle = alarm?.ringtoneTitle ?? 'Default';
     _isCustomRingtone = alarm?.isCustomRingtone ?? false;
     _isCLocked = alarm?.isCLocked ?? false;
+    _autoSnoozeMinutes = alarm?.autoSnoozeMinutes ?? 3;
   }
 
   @override
@@ -60,21 +63,15 @@ class _AlarmEditScreenState extends ConsumerState<AlarmEditScreen> {
 
   void _save() {
     final now = DateTime.now();
-    // Reset seconds and milliseconds to avoid "past" triggers
-    DateTime scheduleTime = DateTime(
-      now.year,
-      now.month,
-      now.day,
-      _selectedDateTime.hour,
-      _selectedDateTime.minute,
-      0, // seconds
-      0, // milliseconds
+    // Temporary model to calculate next occurrence
+    final tempAlarm = AlarmModel(
+      id: 0,
+      dateTime: _selectedDateTime,
+      assetAudioPath: '',
+      daysOfWeek: _selectedDays,
     );
 
-    // If the calculated time is before "now", schedule it for tomorrow
-    if (scheduleTime.isBefore(now)) {
-      scheduleTime = scheduleTime.add(const Duration(days: 1));
-    }
+    final scheduleTime = AlarmUtils.getNextOccurrence(tempAlarm, now);
 
     final settings = ref.read(settingsProvider);
     final defaultAudio = settings.defaultRingtone;
@@ -93,6 +90,7 @@ class _AlarmEditScreenState extends ConsumerState<AlarmEditScreen> {
       volume: _volume,
       daysOfWeek: _selectedDays,
       enabled: true,
+      autoSnoozeMinutes: _autoSnoozeMinutes,
     );
 
     if (widget.alarm == null) {
@@ -105,22 +103,65 @@ class _AlarmEditScreenState extends ConsumerState<AlarmEditScreen> {
 
   String _getCountdownText() {
     final now = DateTime.now();
-    DateTime target = DateTime(
-      now.year,
-      now.month,
-      now.day,
-      _selectedDateTime.hour,
-      _selectedDateTime.minute,
+    // Temporary model to calculate next occurrence
+    final tempAlarm = AlarmModel(
+      id: 0,
+      dateTime: _selectedDateTime,
+      assetAudioPath: '',
+      daysOfWeek: _selectedDays,
     );
-    if (target.isBefore(now)) {
-      target = target.add(const Duration(days: 1));
-    }
+
+    final target = AlarmUtils.getNextOccurrence(tempAlarm, now);
     final diff = target.difference(now);
-    final hours = diff.inHours;
+    final days = diff.inDays;
+    final hours = diff.inHours % 24;
     final minutes = diff.inMinutes % 60;
 
-    if (hours == 0) return 'Ring in $minutes minutes';
-    return 'Ring in $hours hours $minutes minutes';
+    List<String> parts = [];
+    if (days > 0) parts.add('$days d');
+    if (hours > 0) parts.add('$hours h');
+    if (minutes > 0 || (days == 0 && hours == 0)) parts.add('$minutes m');
+
+    return 'Ring in ${parts.join(" ")}';
+  }
+
+  Future<int?> _showCustomSnoozeDialog() async {
+    int value = _autoSnoozeMinutes;
+    if ([1, 3, 5].contains(value)) value = 10;
+
+    return showDialog<int>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Custom Auto Snooze'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Select minutes (1-60)'),
+            const SizedBox(height: 20),
+            StatefulBuilder(
+              builder: (context, setDialogState) => Column(
+                children: [
+                  Text('$value minutes', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                  Slider(
+                    value: value.toDouble(),
+                    min: 1,
+                    max: 60,
+                    divisions: 59,
+                    onChanged: (newValue) {
+                      setDialogState(() => value = newValue.toInt());
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+          TextButton(onPressed: () => Navigator.pop(context, value), child: const Text('OK')),
+        ],
+      ),
+    );
   }
 
   @override
@@ -298,6 +339,62 @@ class _AlarmEditScreenState extends ConsumerState<AlarmEditScreen> {
               ),
               const SizedBox(height: 16),
 
+              // Auto Snooze Section (Only for Normal Alarms)
+              if (!_isCLocked)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceVariant,
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Auto Snooze After', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _SnoozeOption(
+                              label: '1m',
+                              value: 1,
+                              selectedValue: _autoSnoozeMinutes,
+                              onTap: () => setState(() => _autoSnoozeMinutes = 1),
+                            ),
+                            _SnoozeOption(
+                              label: '3m',
+                              value: 3,
+                              selectedValue: _autoSnoozeMinutes,
+                              onTap: () => setState(() => _autoSnoozeMinutes = 3),
+                            ),
+                            _SnoozeOption(
+                              label: '5m',
+                              value: 5,
+                              selectedValue: _autoSnoozeMinutes,
+                              onTap: () => setState(() => _autoSnoozeMinutes = 5),
+                            ),
+                            _SnoozeOption(
+                              label: [1, 3, 5].contains(_autoSnoozeMinutes) ? 'Custom' : '${_autoSnoozeMinutes}m',
+                              value: _autoSnoozeMinutes,
+                              selectedValue: _autoSnoozeMinutes,
+                              isCustom: ![1, 3, 5].contains(_autoSnoozeMinutes),
+                              onTap: () async {
+                                final int? result = await _showCustomSnoozeDialog();
+                                if (result != null) {
+                                  setState(() => _autoSnoozeMinutes = result);
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              if (!_isCLocked) const SizedBox(height: 16),
+
               // Label Section
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -380,6 +477,53 @@ class _AlarmEditScreenState extends ConsumerState<AlarmEditScreen> {
               ),
               const SizedBox(height: 40),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SnoozeOption extends StatelessWidget {
+  final String label;
+  final int value;
+  final int selectedValue;
+  final bool isCustom;
+  final VoidCallback onTap;
+
+  const _SnoozeOption({
+    required this.label,
+    required this.value,
+    required this.selectedValue,
+    required this.onTap,
+    this.isCustom = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isSelected = value == selectedValue || (isCustom && ![1, 3, 5].contains(selectedValue));
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 70,
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? colorScheme.primary : colorScheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? colorScheme.primary : colorScheme.outline.withOpacity(0.3),
+          ),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? colorScheme.onPrimary : colorScheme.onSurface,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
       ),

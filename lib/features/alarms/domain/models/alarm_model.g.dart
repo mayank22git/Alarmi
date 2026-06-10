@@ -30,13 +30,14 @@ class AlarmModelAdapter extends TypeAdapter<AlarmModel> {
       ringtoneTitle: fields[10] != null ? fields[10] as String : 'Default',
       isCustomRingtone: fields[11] != null ? fields[11] as bool : false,
       isCLocked: fields[12] != null ? fields[12] as bool : false,
+      autoSnoozeMinutes: fields[13] != null ? fields[13] as int : 3,
     );
   }
 
   @override
   void write(BinaryWriter writer, AlarmModel obj) {
     writer
-      ..writeByte(13)
+      ..writeByte(14)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -62,7 +63,9 @@ class AlarmModelAdapter extends TypeAdapter<AlarmModel> {
       ..writeByte(11)
       ..write(obj.isCustomRingtone)
       ..writeByte(12)
-      ..write(obj.isCLocked);
+      ..write(obj.isCLocked)
+      ..writeByte(13)
+      ..write(obj.autoSnoozeMinutes);
   }
 
   @override

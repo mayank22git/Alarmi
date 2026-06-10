@@ -6,6 +6,7 @@ import '../../../../core/providers/service_providers.dart';
 
 import 'alarm_action_provider.dart';
 import '../../../../core/utils/date_formatter.dart';
+import '../../../../core/utils/alarm_utils.dart';
 
 final alarmRepositoryProvider = Provider<AlarmRepository>((ref) {
   final storageService = ref.watch(storageServiceProvider);
@@ -21,7 +22,23 @@ class AlarmListNotifier extends StateNotifier<List<AlarmModel>> {
   }
 
   void _loadAlarms() {
-    final alarms = _repository.getAlarms();
+    List<AlarmModel> alarms = _repository.getAlarms();
+    final now = DateTime.now();
+    bool changed = false;
+
+    // Auto-disable expired one-time alarms
+    for (int i = 0; i < alarms.length; i++) {
+      final alarm = alarms[i];
+      if (alarm.enabled && alarm.daysOfWeek.isEmpty && alarm.dateTime.isBefore(now)) {
+        // If it's more than a few seconds past, consider it expired
+        if (now.difference(alarm.dateTime).inSeconds > 5) {
+          alarms[i] = alarm.copyWith(enabled: false);
+          _repository.saveAlarm(alarms[i]);
+          changed = true;
+        }
+      }
+    }
+
     // Sort alarms by time of day (chronological)
     alarms.sort((a, b) {
       if (a.dateTime.hour != b.dateTime.hour) {
@@ -32,22 +49,14 @@ class AlarmListNotifier extends StateNotifier<List<AlarmModel>> {
     state = alarms;
   }
 
+  void refreshAlarms() {
+    _loadAlarms();
+  }
+
   AlarmModel _sanitizeAlarmTime(AlarmModel alarm) {
     final now = DateTime.now();
-    DateTime scheduleTime = DateTime(
-      now.year,
-      now.month,
-      now.day,
-      alarm.dateTime.hour,
-      alarm.dateTime.minute,
-      0,
-      0,
-    );
-
-    if (scheduleTime.isBefore(now)) {
-      scheduleTime = scheduleTime.add(const Duration(days: 1));
-    }
-    return alarm.copyWith(dateTime: scheduleTime);
+    final nextTime = AlarmUtils.getNextOccurrence(alarm, now);
+    return alarm.copyWith(dateTime: nextTime);
   }
 
   Future<void> addAlarm(AlarmModel alarm) async {
@@ -118,6 +127,35 @@ class AlarmListNotifier extends StateNotifier<List<AlarmModel>> {
       );
     } catch (e) {
       _ref.read(alarmActionProvider.notifier).notifySingle(AlarmActionType.toggle, false, message: 'Failed to update alarm');
+    }
+  }
+
+  Future<void> dismissAlarm(int id) async {
+    final alarms = state;
+    final index = alarms.indexWhere((a) => a.id == id);
+    if (index == -1) return;
+
+    final alarm = alarms[index];
+    AlarmModel updatedAlarm;
+
+    if (alarm.daysOfWeek.isEmpty) {
+      // Ring Once: Disable it
+      updatedAlarm = alarm.copyWith(enabled: false);
+    } else {
+      // Repeating: Schedule next occurrence
+      final now = DateTime.now();
+      final nextTime = AlarmUtils.getNextOccurrence(alarm, now);
+      updatedAlarm = alarm.copyWith(dateTime: nextTime);
+    }
+
+    await _repository.saveAlarm(updatedAlarm);
+    _loadAlarms();
+    
+    final alarmService = _ref.read(alarmServiceProvider);
+    await alarmService.stopAlarm(id); // Ensure it's stopped in the package
+    
+    if (updatedAlarm.enabled) {
+      await alarmService.scheduleAlarm(updatedAlarm);
     }
   }
 

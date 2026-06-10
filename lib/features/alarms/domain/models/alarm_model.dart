@@ -31,6 +31,8 @@ class AlarmModel extends Equatable {
   final bool isCustomRingtone;
   @HiveField(12)
   final bool isCLocked;
+  @HiveField(13)
+  final int autoSnoozeMinutes;
 
   const AlarmModel({
     required this.id,
@@ -46,6 +48,7 @@ class AlarmModel extends Equatable {
     this.ringtoneTitle = 'Default',
     this.isCustomRingtone = false,
     this.isCLocked = false,
+    this.autoSnoozeMinutes = 3,
   });
 
   AlarmModel copyWith({
@@ -62,6 +65,7 @@ class AlarmModel extends Equatable {
     String? ringtoneTitle,
     bool? isCustomRingtone,
     bool? isCLocked,
+    int? autoSnoozeMinutes,
   }) {
     return AlarmModel(
       id: id ?? this.id,
@@ -77,6 +81,7 @@ class AlarmModel extends Equatable {
       ringtoneTitle: ringtoneTitle ?? this.ringtoneTitle,
       isCustomRingtone: isCustomRingtone ?? this.isCustomRingtone,
       isCLocked: isCLocked ?? this.isCLocked,
+      autoSnoozeMinutes: autoSnoozeMinutes ?? this.autoSnoozeMinutes,
     );
   }
 
@@ -95,5 +100,6 @@ class AlarmModel extends Equatable {
         ringtoneTitle,
         isCustomRingtone,
         isCLocked,
+        autoSnoozeMinutes,
       ];
 }

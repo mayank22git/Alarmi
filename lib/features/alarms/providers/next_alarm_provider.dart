@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/models/alarm_model.dart';
 import 'alarm_provider.dart';
+import '../../../../core/utils/alarm_utils.dart';
 
 class NextAlarmState {
   final String message;
@@ -42,27 +43,32 @@ class NextAlarmNotifier extends StateNotifier<NextAlarmState> {
 
     final now = DateTime.now();
     DateTime? earliest;
+    bool foundExpired = false;
 
     for (final alarm in enabledAlarms) {
       DateTime nextOccurrence;
 
       if (alarm.daysOfWeek.isEmpty) {
         // One-time alarm
-        nextOccurrence = DateTime(
-          now.year, now.month, now.day,
-          alarm.dateTime.hour, alarm.dateTime.minute, 0, 0,
-        );
+        nextOccurrence = alarm.dateTime;
+        // If it's in the past, it shouldn't be considered upcoming
         if (nextOccurrence.isBefore(now)) {
-          nextOccurrence = nextOccurrence.add(const Duration(days: 1));
+          foundExpired = true;
+          continue;
         }
       } else {
         // Repeating alarm
-        nextOccurrence = _getNextRepeatingOccurrence(alarm, now);
+        nextOccurrence = AlarmUtils.getNextOccurrence(alarm, now);
       }
 
       if (earliest == null || nextOccurrence.isBefore(earliest)) {
         earliest = nextOccurrence;
       }
+    }
+
+    if (foundExpired) {
+      // Trigger a cleanup in AlarmListNotifier to sync states
+      Future.microtask(() => _ref.read(alarmListProvider.notifier).refreshAlarms());
     }
 
     if (earliest != null) {
@@ -71,28 +77,9 @@ class NextAlarmNotifier extends StateNotifier<NextAlarmState> {
         message: _formatRemaining(diff),
         remaining: diff,
       );
+    } else {
+      state = NextAlarmState(message: 'No upcoming alarms');
     }
-  }
-
-  DateTime _getNextRepeatingOccurrence(AlarmModel alarm, DateTime now) {
-    // 1 = Monday, 7 = Sunday
-    int currentDay = now.weekday;
-    
-    // Check days in a circle starting from today
-    for (int i = 0; i < 8; i++) {
-      int checkDay = ((currentDay + i - 1) % 7) + 1;
-      if (alarm.daysOfWeek.contains(checkDay)) {
-        DateTime occurrence = DateTime(
-          now.year, now.month, now.day,
-          alarm.dateTime.hour, alarm.dateTime.minute, 0, 0,
-        ).add(Duration(days: i));
-
-        if (occurrence.isAfter(now)) {
-          return occurrence;
-        }
-      }
-    }
-    return now.add(const Duration(days: 1)); // Fallback
   }
 
   String _formatRemaining(Duration diff) {

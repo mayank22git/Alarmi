@@ -14,6 +14,7 @@ void main() async {
   await [
     Permission.notification,
     Permission.scheduleExactAlarm,
+    Permission.systemAlertWindow,
   ].request();
 
   final storageService = StorageService();

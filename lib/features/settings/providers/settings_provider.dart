@@ -3,12 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/service_providers.dart';
 import 'dart:developer' as dev;
 
+enum ButtonAction {
+  snooze,
+  dismiss,
+}
+
 class SettingsState {
   final ThemeMode themeMode;
   final bool is24HourFormat;
   final String defaultRingtone;
   final String defaultRingtoneTitle;
   final int snoozeDuration;
+  final ButtonAction powerButtonAction;
+  final ButtonAction volumeButtonAction;
 
   SettingsState({
     required this.themeMode,
@@ -16,6 +23,8 @@ class SettingsState {
     required this.defaultRingtone,
     required this.defaultRingtoneTitle,
     required this.snoozeDuration,
+    this.powerButtonAction = ButtonAction.snooze,
+    this.volumeButtonAction = ButtonAction.snooze,
   });
 
   SettingsState copyWith({
@@ -24,6 +33,8 @@ class SettingsState {
     String? defaultRingtone,
     String? defaultRingtoneTitle,
     int? snoozeDuration,
+    ButtonAction? powerButtonAction,
+    ButtonAction? volumeButtonAction,
   }) {
     return SettingsState(
       themeMode: themeMode ?? this.themeMode,
@@ -31,6 +42,8 @@ class SettingsState {
       defaultRingtone: defaultRingtone ?? this.defaultRingtone,
       defaultRingtoneTitle: defaultRingtoneTitle ?? this.defaultRingtoneTitle,
       snoozeDuration: snoozeDuration ?? this.snoozeDuration,
+      powerButtonAction: powerButtonAction ?? this.powerButtonAction,
+      volumeButtonAction: volumeButtonAction ?? this.volumeButtonAction,
     );
   }
 }
@@ -45,6 +58,8 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
           defaultRingtone: 'assets/audio/Ringing.mp3',
           defaultRingtoneTitle: 'Default',
           snoozeDuration: 5,
+          powerButtonAction: ButtonAction.snooze,
+          volumeButtonAction: ButtonAction.snooze,
         )) {
     _loadSettings();
   }
@@ -56,6 +71,8 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     final ringtone = storage.getSetting('defaultRingtone', defaultValue: 'assets/audio/Ringing.mp3');
     final ringtoneTitle = storage.getSetting('defaultRingtoneTitle', defaultValue: 'Default');
     final snooze = storage.getSetting('snoozeDuration', defaultValue: 5);
+    final powerActionIndex = storage.getSetting('powerButtonAction', defaultValue: ButtonAction.snooze.index);
+    final volumeActionIndex = storage.getSetting('volumeButtonAction', defaultValue: ButtonAction.snooze.index);
 
     state = SettingsState(
       themeMode: ThemeMode.values[themeIndex],
@@ -63,6 +80,8 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       defaultRingtone: ringtone,
       defaultRingtoneTitle: ringtoneTitle,
       snoozeDuration: snooze,
+      powerButtonAction: ButtonAction.values[powerActionIndex],
+      volumeButtonAction: ButtonAction.values[volumeActionIndex],
     );
   }
 
@@ -87,6 +106,16 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   Future<void> setSnoozeDuration(int minutes) async {
     state = state.copyWith(snoozeDuration: minutes);
     await _ref.read(storageServiceProvider).saveSetting('snoozeDuration', minutes);
+  }
+
+  Future<void> setPowerButtonAction(ButtonAction action) async {
+    state = state.copyWith(powerButtonAction: action);
+    await _ref.read(storageServiceProvider).saveSetting('powerButtonAction', action.index);
+  }
+
+  Future<void> setVolumeButtonAction(ButtonAction action) async {
+    state = state.copyWith(volumeButtonAction: action);
+    await _ref.read(storageServiceProvider).saveSetting('volumeButtonAction', action.index);
   }
 }
 
